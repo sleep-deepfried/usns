@@ -9,10 +9,9 @@ import {
   deleteDoc,
   doc,
   Timestamp,
-  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Feedback, FeedbackReply, FeedbackContextValue } from '../types/feedback';
+import { Feedback, FeedbackContextValue } from '../types/feedback';
 import { useAuth } from './AuthContext';
 import { getPermissions } from '../utils/permissions';
 
@@ -20,79 +19,8 @@ const FeedbackContext = createContext<FeedbackContextValue | undefined>(undefine
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const [feedback, setFeedback] = useState<Feedback[]>([]);
-  const [replies, setReplies] = useState<Record<string, FeedbackReply[]>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-
-  // Fetch all feedback (for staff) or user's feedback (for students)
-  useEffect(() => {
-    if (!user) {
-      setFeedback([]);
-      setLoading(false);
-      return;
-    }
-
-    const permissions = getPermissions(user.role);
-    const isStaff = permissions.canViewFeedback;
-
-    // Staff see all feedback, students see only their own
-    const feedbackQuery = isStaff
-      ? query(collection(db, 'feedback'), orderBy('timestamp', 'desc'))
-      : query(
-          collection(db, 'feedback'),
-          where('studentId', '==', user.uid),
-          orderBy('timestamp', 'desc')
-        );
-
-    const unsubscribe = onSnapshot(
-      feedbackQuery,
-      (snapshot) => {
-        const feedbackList: Feedback[] = [];
-        snapshot.forEach((doc) => {
-          feedbackList.push({
-            id: doc.id,
-            ...doc.data(),
-          } as Feedback);
-        });
-        setFeedback(feedbackList);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching feedback:', error);
-        setLoading(false);
-      }
-    );
-
-    return unsubscribe;
-  }, [user]);
-
-  // Listen to replies for all feedback
-  useEffect(() => {
-    if (feedback.length === 0) return;
-
-    const unsubscribes = feedback.map((fb) => {
-      const repliesQuery = query(
-        collection(db, 'feedback', fb.id, 'replies'),
-        orderBy('createdAt', 'asc')
-      );
-
-      return onSnapshot(repliesQuery, (snapshot) => {
-        const replyList: FeedbackReply[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          replyList.push({
-            id: doc.id,
-            feedbackId: fb.id,
-            ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
-          } as FeedbackReply);
-        });
-        setReplies((prev) => ({ ...prev, [fb.id]: replyList }));
-      });
-    });
-
-    return () => unsubscribes.forEach((unsub) => unsub());
-  }, [feedback]);
 
   const sendFeedback = async (notificationId: string, message: string) => {
     if (!user) {
@@ -138,32 +66,11 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const addReply = async (feedbackId: string, message: string) => {
-    if (!user) throw new Error('Must be logged in');
-
-    const permissions = getPermissions(user.role);
-    if (!permissions.canReplyToFeedback) {
-      throw new Error('You do not have permission to reply to feedback');
-    }
-
-    await addDoc(collection(db, 'feedback', feedbackId, 'replies'), {
-      message,
-      senderId: user.uid,
-      senderName: `${user.firstName} ${user.lastName}`,
-      senderRole: user.role,
-      createdAt: serverTimestamp(),
-    });
-  };
-
-  const getReplies = (feedbackId: string) => replies[feedbackId] || [];
-
   const value: FeedbackContextValue = {
     feedback,
     loading,
     sendFeedback,
     deleteFeedback,
-    addReply,
-    getReplies,
   };
 
   return (

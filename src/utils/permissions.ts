@@ -54,7 +54,7 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: true,
         canViewNotifications: true,
         canMarkAsRead: true,
-        canSendFeedback: false, // Admins don't send feedback, they reply
+        canSendFeedback: true,
         canViewFeedback: true,
         canReplyToFeedback: true,
         canDeleteFeedback: true,
@@ -69,7 +69,7 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: true,
         canViewNotifications: true,
         canMarkAsRead: true,
-        canSendFeedback: false, // Teachers don't send feedback, they reply
+        canSendFeedback: true,
         canViewFeedback: true,
         canReplyToFeedback: true,
         canDeleteFeedback: false,

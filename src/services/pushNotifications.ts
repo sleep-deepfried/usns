@@ -5,11 +5,10 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/fi
 import Constants from 'expo-constants';
 import { db } from '../config/firebase';
 
-// Check if we're running in Expo Go (executionEnvironment is the non-deprecated way)
-const isExpoGo = Constants.executionEnvironment === 'storeClient';
+// Check if we're running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
 
 // Configure how notifications appear when app is in foreground
-// Only set up if not in Expo Go (push notifications removed from Expo Go in SDK 53+)
 if (!isExpoGo) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -23,12 +22,6 @@ if (!isExpoGo) {
 }
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  // Push notifications don't work in Expo Go on SDK 53+
-  if (isExpoGo) {
-    console.log('Push notifications are not supported in Expo Go. Use a development build.');
-    return null;
-  }
-
   let token: string | null = null;
 
   if (!Device.isDevice) {
@@ -53,9 +46,8 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   // Get Expo push token
   try {
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId,
+      projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
     });
     token = tokenData.data;
     console.log('Push token:', token);

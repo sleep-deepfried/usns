@@ -137,33 +137,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && canSendFeedback();
       allow delete: if isAuthenticated() && (isAdmin() || isTeacher());
-
-      // Replies subcollection - only staff can create replies
-      match /replies/{replyId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && (isAdmin() || isTeacher());
-      }
     }
 
     // Push notifications queue (for Cloud Functions to process)
     match /push_notifications/{notificationId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (isAdmin() || isTeacher());
-    }
-
-    // Reports collection - students can create, staff can read all
-    match /reports/{reportId} {
-      allow read: if isAuthenticated() && (
-        isAdmin() || isTeacher() || resource.data.studentId == request.auth.uid
-      );
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (isAdmin() || isTeacher());
-
-      // Replies subcollection - only staff can create replies
-      match /replies/{replyId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && (isAdmin() || isTeacher());
-      }
     }
   }
 }

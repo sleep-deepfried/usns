@@ -20,7 +20,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="USNS" subtitle={`${user.firstName} ${user.lastName}`} />
+        <Appbar.Content title="USNS" subtitle={`Welcome, ${user.firstName}`} />
         <Appbar.Action icon="logout" onPress={signOut} />
       </Appbar.Header>
 

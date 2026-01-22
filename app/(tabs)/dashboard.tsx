@@ -28,7 +28,7 @@ export default function DashboardScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="Admin Panel" subtitle={`${user.firstName} ${user.lastName}`} />
+        <Appbar.Content title="Dashboard" subtitle={user.role} />
         <Appbar.Action icon="logout" onPress={signOut} />
       </Appbar.Header>
 

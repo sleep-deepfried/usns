@@ -27,15 +27,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "2.0.21"
-          }
-        }
-      ]
+      "expo-router"
     ],
     "extra": {
       "router": {},

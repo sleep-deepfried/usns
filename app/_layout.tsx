@@ -3,7 +3,6 @@ import { PaperProvider } from 'react-native-paper';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { NotificationProvider } from '../src/contexts/NotificationContext';
 import { FeedbackProvider } from '../src/contexts/FeedbackContext';
-import { ReportProvider } from '../src/contexts/ReportContext';
 
 export default function RootLayout() {
   return (
@@ -11,9 +10,7 @@ export default function RootLayout() {
       <AuthProvider>
         <NotificationProvider>
           <FeedbackProvider>
-            <ReportProvider>
-              <Slot />
-            </ReportProvider>
+            <Slot />
           </FeedbackProvider>
         </NotificationProvider>
       </AuthProvider>
