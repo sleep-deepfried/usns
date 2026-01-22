@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button, Chip } from 'react-native-paper';
-import { useRouter } from 'expo-router';
+import { Card, Text, Button, Chip, Portal, Modal } from 'react-native-paper';
 import { Notification } from '../types/notification';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { getPermissions } from '../utils/permissions';
+import FeedbackForm from './FeedbackForm';
 
 interface NotificationItemProps {
   notification: Notification;
@@ -14,8 +14,8 @@ interface NotificationItemProps {
 export default function NotificationItem({ notification }: NotificationItemProps) {
   const { user } = useAuth();
   const { markAsRead } = useNotifications();
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
 
   if (!user) return null;
 
@@ -41,56 +41,67 @@ export default function NotificationItem({ notification }: NotificationItemProps
     }
   };
 
-  const handleSendFeedback = () => {
-    router.push(`/(tabs)/feedback/${notification.id}`);
-  };
-
   return (
-    <Card style={[styles.card, !isRead && styles.unreadCard]}>
-      <Card.Content>
-        <View style={styles.header}>
-          <Text variant="titleMedium" style={styles.title}>
-            {notification.title}
-          </Text>
-          {!isRead && <Chip mode="flat" compact={true}>New</Chip>}
-        </View>
+    <>
+      <Card style={[styles.card, !isRead && styles.unreadCard]}>
+        <Card.Content>
+          <View style={styles.header}>
+            <Text variant="titleMedium" style={styles.title}>
+              {notification.title}
+            </Text>
+            {!isRead && <Chip mode="flat" compact={true}>New</Chip>}
+          </View>
 
-        <Text variant="bodyMedium" style={styles.message}>
-          {notification.message}
-        </Text>
-
-        <View style={styles.footer}>
-          <Text variant="bodySmall" style={styles.sender}>
-            From: {notification.senderName}
+          <Text variant="bodyMedium" style={styles.message}>
+            {notification.message}
           </Text>
-          <Text variant="bodySmall" style={styles.timestamp}>
-            {formatTimestamp(notification.timestamp)}
-          </Text>
-        </View>
-      </Card.Content>
 
-      <Card.Actions>
-        {!isRead && (
-          <Button
-            mode="outlined"
-            onPress={handleMarkAsRead}
-            loading={loading}
-            disabled={loading}
-          >
-            Mark as Read
-          </Button>
-        )}
-        
-        {permissions.canSendFeedback && (
-          <Button
-            mode="contained"
-            onPress={handleSendFeedback}
-          >
-            Send Feedback
-          </Button>
-        )}
-      </Card.Actions>
-    </Card>
+          <View style={styles.footer}>
+            <Text variant="bodySmall" style={styles.sender}>
+              From: {notification.senderName}
+            </Text>
+            <Text variant="bodySmall" style={styles.timestamp}>
+              {formatTimestamp(notification.timestamp)}
+            </Text>
+          </View>
+        </Card.Content>
+
+        <Card.Actions>
+          {!isRead && (
+            <Button
+              mode="outlined"
+              onPress={handleMarkAsRead}
+              loading={loading}
+              disabled={loading}
+            >
+              Mark as Read
+            </Button>
+          )}
+          
+          {permissions.canSendFeedback && (
+            <Button
+              mode="contained"
+              onPress={() => setShowFeedbackForm(true)}
+            >
+              Send Feedback
+            </Button>
+          )}
+        </Card.Actions>
+      </Card>
+
+      <Portal>
+        <Modal
+          visible={showFeedbackForm}
+          onDismiss={() => setShowFeedbackForm(false)}
+          contentContainerStyle={styles.modal}
+        >
+          <FeedbackForm
+            notificationId={notification.id}
+            onClose={() => setShowFeedbackForm(false)}
+          />
+        </Modal>
+      </Portal>
+    </>
   );
 }
 
@@ -126,5 +137,8 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     color: '#999',
+  },
+  modal: {
+    margin: 20,
   },
 });

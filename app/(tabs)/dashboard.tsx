@@ -7,7 +7,7 @@ import { getPermissions } from '../../src/utils/permissions';
 import SendNotificationForm from '../../src/components/SendNotificationForm';
 import UserManagementList from '../../src/components/UserManagementList';
 
-export default function DashboardScreen() {
+export default function ManageScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
 
@@ -28,7 +28,7 @@ export default function DashboardScreen() {
   return (
     <View style={styles.container}>
       <Appbar.Header>
-        <Appbar.Content title="Dashboard" subtitle={user.role} />
+        <Appbar.Content title="Manage" subtitle={user.role} />
         <Appbar.Action icon="logout" onPress={signOut} />
       </Appbar.Header>
 

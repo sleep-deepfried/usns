@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TextInput, Button, Card, HelperText } from 'react-native-paper';
+import { TextInput, Button, Card, HelperText, Text } from 'react-native-paper';
 import { useFeedback } from '../contexts/FeedbackContext';
 
 interface FeedbackFormProps {
@@ -32,6 +32,7 @@ export default function FeedbackForm({ notificationId, onClose }: FeedbackFormPr
     try {
       await sendFeedback(notificationId, message.trim());
       setMessage('');
+      alert('Feedback sent successfully!');
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to send feedback');
@@ -43,6 +44,8 @@ export default function FeedbackForm({ notificationId, onClose }: FeedbackFormPr
   return (
     <Card style={styles.card}>
       <Card.Content>
+        <Text variant="titleMedium" style={styles.title}>Send Feedback</Text>
+        
         <TextInput
           label="Your Feedback"
           value={message}
@@ -91,11 +94,11 @@ export default function FeedbackForm({ notificationId, onClose }: FeedbackFormPr
 
 const styles = StyleSheet.create({
   card: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
     elevation: 4,
+  },
+  title: {
+    fontWeight: 'bold',
+    marginBottom: 16,
   },
   input: {
     marginBottom: 8,

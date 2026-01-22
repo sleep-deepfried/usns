@@ -5,8 +5,8 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/fi
 import Constants from 'expo-constants';
 import { db } from '../config/firebase';
 
-// Check if we're running in Expo Go
-const isExpoGo = Constants.appOwnership === 'expo';
+// Check if we're running in Expo Go (executionEnvironment is the non-deprecated way)
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 // Configure how notifications appear when app is in foreground
 if (!isExpoGo) {
@@ -22,6 +22,12 @@ if (!isExpoGo) {
 }
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  // Skip in Expo Go - push notifications require a development build in SDK 53+
+  if (isExpoGo) {
+    console.log('Push notifications not available in Expo Go. Build an APK for full functionality.');
+    return null;
+  }
+
   let token: string | null = null;
 
   if (!Device.isDevice) {
@@ -46,8 +52,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   // Get Expo push token
   try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+      projectId,
     });
     token = tokenData.data;
     console.log('Push token:', token);
