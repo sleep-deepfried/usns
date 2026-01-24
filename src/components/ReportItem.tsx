@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Card, Text, Chip, Button, TextInput, Divider } from 'react-native-paper';
+import { View, StyleSheet, Alert } from 'react-native';
+import { Card, Text, Chip, Button, TextInput, Divider, IconButton, Portal, Dialog } from 'react-native-paper';
 import { Report } from '../types/report';
 import { useReports } from '../contexts/ReportContext';
 import { useAuth } from '../contexts/AuthContext';
+import { getPermissions } from '../utils/permissions';
 
 interface Props {
   report: Report;
@@ -13,11 +14,13 @@ export default function ReportItem({ report }: Props) {
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(false);
-  const { replyToReport, updateReportStatus } = useReports();
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const { replyToReport, updateReportStatus, deleteReport } = useReports();
   const { user } = useAuth();
 
   const canReply = user?.role === 'Administrator' || user?.role === 'Teacher';
   const canChangeStatus = canReply;
+  const permissions = user ? getPermissions(user.role) : null;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -51,17 +54,36 @@ export default function ReportItem({ report }: Props) {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      await deleteReport(report.id);
+      setDeleteDialogVisible(false);
+    } catch (err) {
+      Alert.alert('Error', 'Failed to delete report');
+    }
+  };
+
   return (
+    <>
     <Card style={styles.card}>
       <Card.Content>
         <View style={styles.header}>
           <Text variant="titleMedium" style={styles.title}>{report.title}</Text>
-          <Chip 
-            style={{ backgroundColor: getStatusColor(report.status) }}
-            textStyle={{ color: '#fff' }}
-          >
-            {report.status}
-          </Chip>
+          <View style={styles.headerRight}>
+            <Chip 
+              style={{ backgroundColor: getStatusColor(report.status) }}
+              textStyle={{ color: '#fff' }}
+            >
+              {report.status}
+            </Chip>
+            {permissions?.canDeleteReport && (
+              <IconButton
+                icon="delete"
+                size={20}
+                onPress={() => setDeleteDialogVisible(true)}
+              />
+            )}
+          </View>
         </View>
 
         <Text variant="bodySmall" style={styles.meta}>
@@ -115,6 +137,20 @@ export default function ReportItem({ report }: Props) {
         </Card.Content>
       )}
     </Card>
+
+    <Portal>
+      <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
+        <Dialog.Title>Delete Report</Dialog.Title>
+        <Dialog.Content>
+          <Text>Are you sure you want to delete this report?</Text>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
+          <Button onPress={handleDelete} textColor="#c62828">Delete</Button>
+        </Dialog.Actions>
+      </Dialog>
+    </Portal>
+    </>
   );
 }
 
@@ -127,6 +163,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   title: {
     fontWeight: 'bold',

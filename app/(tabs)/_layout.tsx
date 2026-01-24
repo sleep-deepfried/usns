@@ -7,6 +7,8 @@ import { getPermissions } from '../../src/utils/permissions';
 import HomeScreen from './index';
 import ManageScreen from './dashboard';
 import ReportsScreen from './reports';
+import FeedbacksScreen from './feedbacks';
+import MyFeedbackScreen from './myfeedback';
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
@@ -27,20 +29,32 @@ export default function TabsLayout() {
 
   const permissions = getPermissions(user.role);
 
-  // Define routes - Reports available to all users
+  // Define routes based on role
   const routes: { key: string; title: string; focusedIcon: string; unfocusedIcon: string }[] = [
     { key: 'home', title: 'Home', focusedIcon: 'home', unfocusedIcon: 'home-outline' },
     { key: 'reports', title: 'Reports', focusedIcon: 'file-document', unfocusedIcon: 'file-document-outline' },
   ];
 
-  // Only add manage for users with access
+  // Add My Feedback tab for Students (to see their own feedback and replies)
+  if (!permissions.canViewFeedback) {
+    routes.push({ key: 'myfeedback', title: 'My Feedback', focusedIcon: 'message-reply', unfocusedIcon: 'message-reply-outline' });
+  }
+
+  // Add Feedbacks tab for Teachers/Admins (to manage all feedback)
+  if (permissions.canViewFeedback) {
+    routes.push({ key: 'feedbacks', title: 'Feedbacks', focusedIcon: 'message-text', unfocusedIcon: 'message-text-outline' });
+  }
+
+  // Add Manage tab for Teachers/Admins
   if (permissions.canAccessDashboard) {
     routes.push({ key: 'manage', title: 'Manage', focusedIcon: 'cog', unfocusedIcon: 'cog-outline' });
   }
 
-  const sceneMap = {
+  const sceneMap: Record<string, React.ComponentType<any>> = {
     home: HomeScreen,
     reports: ReportsScreen,
+    myfeedback: MyFeedbackScreen,
+    feedbacks: FeedbacksScreen,
     manage: ManageScreen,
   };
 

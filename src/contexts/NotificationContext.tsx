@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   collection,
   query,
@@ -6,6 +6,7 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   arrayUnion,
   Timestamp,
@@ -13,6 +14,9 @@ import {
 import { db } from '../config/firebase';
 import { Notification, NotificationContextValue } from '../types/notification';
 import { useAuth } from './AuthContext';
+import { useBanner } from './BannerContext';
+import { sendPushNotificationToAll } from '../services/pushNotifications';
+import { getPermissions } from '../utils/permissions';
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
@@ -20,11 +24,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { showBanner } = useBanner();
+  const isInitialLoad = useRef(true);
+  const previousNotificationIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) {
       setNotifications([]);
       setLoading(false);
+      isInitialLoad.current = true;
+      previousNotificationIds.current = new Set();
       return;
     }
 
@@ -38,12 +47,26 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       q,
       (snapshot) => {
         const notificationList: Notification[] = [];
-        snapshot.forEach((doc) => {
+        snapshot.forEach((docSnap) => {
           notificationList.push({
-            id: doc.id,
-            ...doc.data(),
+            id: docSnap.id,
+            ...docSnap.data(),
           } as Notification);
         });
+
+        // Check for new notifications (not sent by current user)
+        if (!isInitialLoad.current) {
+          notificationList.forEach((notif) => {
+            if (!previousNotificationIds.current.has(notif.id) && notif.senderId !== user.uid) {
+              showBanner('📢 New Announcement', `${notif.title}`, 'info');
+            }
+          });
+        }
+
+        // Update previous IDs
+        previousNotificationIds.current = new Set(notificationList.map((n) => n.id));
+        isInitialLoad.current = false;
+
         setNotifications(notificationList);
         setLoading(false);
       },
@@ -54,7 +77,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     );
 
     return unsubscribe;
-  }, [user]);
+  }, [user, showBanner]);
 
   const sendNotification = async (title: string, message: string) => {
     if (!user) {
@@ -62,10 +85,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
 
     try {
+      const senderName = `${user.firstName} ${user.lastName}`;
       const notificationData = {
         title,
         message,
-        senderName: `${user.firstName} ${user.lastName}`,
+        senderName,
         senderId: user.uid,
         timestamp: Timestamp.now(),
         readBy: [],
@@ -73,7 +97,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       await addDoc(collection(db, 'notifications'), notificationData);
       
-      // TODO: Trigger push notification to all users via FCM
+      // Send push notification to all users
+      await sendPushNotificationToAll(title, `${message}\n\n- ${senderName}`);
     } catch (error: any) {
       console.error('Error sending notification:', error);
       throw new Error(error.message || 'Failed to send notification');
@@ -96,11 +121,30 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const deleteNotification = async (notificationId: string) => {
+    if (!user) {
+      throw new Error('User must be authenticated');
+    }
+
+    const permissions = getPermissions(user.role);
+    if (!permissions.canDeleteNotification) {
+      throw new Error('You do not have permission to delete notifications');
+    }
+
+    try {
+      await deleteDoc(doc(db, 'notifications', notificationId));
+    } catch (error: any) {
+      console.error('Error deleting notification:', error);
+      throw new Error(error.message || 'Failed to delete notification');
+    }
+  };
+
   const value: NotificationContextValue = {
     notifications,
     loading,
     sendNotification,
     markAsRead,
+    deleteNotification,
   };
 
   return (

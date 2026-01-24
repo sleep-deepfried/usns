@@ -122,6 +122,8 @@ service cloud.firestore {
       allow update: if isAuthenticated() && isTeacher()
                     && (resource.data.role == 'Student' || resource.data.role == 'Verified_Student')
                     && (request.resource.data.role == 'Student' || request.resource.data.role == 'Verified_Student');
+      // Only Admin can delete users (except other admins)
+      allow delete: if isAuthenticated() && isAdmin() && resource.data.role != 'Administrator';
     }
 
     // Notifications collection
@@ -130,19 +132,35 @@ service cloud.firestore {
       allow create: if isAuthenticated() && canSendNotification();
       allow update: if isAuthenticated() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+      // Only Admin can delete notifications
+      allow delete: if isAuthenticated() && isAdmin();
     }
 
     // Feedback collection
     match /feedback/{feedbackId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && canSendFeedback();
-      allow delete: if isAuthenticated() && (isAdmin() || isTeacher());
+      // Allow replies (update) from Admin/Teacher
+      allow update: if isAuthenticated() && (isAdmin() || isTeacher());
+      // Only Admin can delete feedback
+      allow delete: if isAuthenticated() && isAdmin();
     }
 
-    // Push notifications queue (for Cloud Functions to process)
-    match /push_notifications/{notificationId} {
+    // Reports collection
+    match /reports/{reportId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isAdmin() || isTeacher());
+      // Students can create reports
+      allow create: if isAuthenticated();
+      // Admin/Teacher can update (reply, change status)
+      allow update: if isAuthenticated() && (isAdmin() || isTeacher());
+      // Only Admin can delete reports
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // Push notifications tokens
+    match /push_notifications/{tokenId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
     }
   }
 }

@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { TextInput, Button, Card, Text } from 'react-native-paper';
-import { useReports } from '../contexts/ReportContext';
 
-export default function CreateReportForm({ onSuccess }: { onSuccess?: () => void }) {
+interface Props {
+  onSuccess?: () => void;
+  createReport: (title: string, message: string) => Promise<void>;
+}
+
+export default function CreateReportForm({ onSuccess, createReport }: Props) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { createReport } = useReports();
 
   const handleSubmit = async () => {
     if (!title.trim() || !message.trim()) {

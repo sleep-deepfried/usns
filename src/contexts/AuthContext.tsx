@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -6,16 +6,19 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { User, SignUpData, AuthContextValue } from '../types/auth';
 import { registerForPushNotificationsAsync, savePushToken } from '../services/pushNotifications';
+import { useBanner } from './BannerContext';
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { showBanner } = useBanner();
+  const previousVerificationStatus = useRef<boolean | null>(null);
 
   useEffect(() => {
     // Listen for auth state changes
@@ -27,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userDoc.exists()) {
             const userData = userDoc.data() as User;
             setUser(userData);
+            previousVerificationStatus.current = userData.isVerified;
             
             // Register for push notifications
             const pushToken = await registerForPushNotificationsAsync();
@@ -43,12 +47,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         setUser(null);
+        previousVerificationStatus.current = null;
       }
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
+
+  // Listen for real-time changes to user document (for verification status updates)
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const updatedUser = docSnap.data() as User;
+        
+        // Check if verification status changed
+        if (previousVerificationStatus.current !== null && 
+            previousVerificationStatus.current !== updatedUser.isVerified) {
+          if (updatedUser.isVerified) {
+            showBanner('🎉 Verified!', 'Your account has been verified. You can now send feedback!', 'success');
+          } else {
+            showBanner('⚠️ Unverified', 'Your verification status has been removed.', 'warning');
+          }
+        }
+        
+        previousVerificationStatus.current = updatedUser.isVerified;
+        setUser(updatedUser);
+      }
+    });
+
+    return unsubscribe;
+  }, [user?.uid, showBanner]);
 
   const signIn = async (email: string, password: string) => {
     try {

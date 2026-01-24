@@ -5,19 +5,24 @@ export interface RolePermissions {
   canSendNotification: boolean;
   canViewNotifications: boolean;
   canMarkAsRead: boolean;
-  
+  canDeleteNotification: boolean;
+
   // Feedback permissions
   canSendFeedback: boolean;
   canViewFeedback: boolean;
   canReplyToFeedback: boolean;
   canDeleteFeedback: boolean;
-  
+
+  // Report permissions
+  canDeleteReport: boolean;
+
   // User management permissions
   canViewUserList: boolean;
   canPromoteToTeacher: boolean;
   canVerifyStudent: boolean;
   canUnverifyStudent: boolean;
-  
+  canDeleteUser: boolean;
+
   // Dashboard access
   canAccessDashboard: boolean;
 }
@@ -54,14 +59,17 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: true,
         canViewNotifications: true,
         canMarkAsRead: true,
-        canSendFeedback: true,
+        canDeleteNotification: true,
+        canSendFeedback: false, // Admin only replies, doesn't send feedback
         canViewFeedback: true,
         canReplyToFeedback: true,
         canDeleteFeedback: true,
+        canDeleteReport: true,
         canViewUserList: true,
         canPromoteToTeacher: true,
         canVerifyStudent: true, // Admin can also do Teacher duties
         canUnverifyStudent: true,
+        canDeleteUser: true,
         canAccessDashboard: true,
       };
     case 'Teacher':
@@ -69,14 +77,17 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: true,
         canViewNotifications: true,
         canMarkAsRead: true,
-        canSendFeedback: true,
+        canDeleteNotification: false,
+        canSendFeedback: false, // Teacher only replies, doesn't send feedback
         canViewFeedback: true,
         canReplyToFeedback: true,
         canDeleteFeedback: false,
+        canDeleteReport: false,
         canViewUserList: true, // To see students for verification
         canPromoteToTeacher: false,
         canVerifyStudent: true,
         canUnverifyStudent: true,
+        canDeleteUser: false,
         canAccessDashboard: true,
       };
     case 'Verified_Student':
@@ -84,14 +95,17 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: false,
         canViewNotifications: true,
         canMarkAsRead: true,
+        canDeleteNotification: false,
         canSendFeedback: true, // Active feature
         canViewFeedback: false,
         canReplyToFeedback: false,
         canDeleteFeedback: false,
+        canDeleteReport: false,
         canViewUserList: false,
         canPromoteToTeacher: false,
         canVerifyStudent: false,
         canUnverifyStudent: false,
+        canDeleteUser: false,
         canAccessDashboard: false,
       };
     case 'Student':
@@ -99,14 +113,17 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: false,
         canViewNotifications: true,
         canMarkAsRead: true,
+        canDeleteNotification: false,
         canSendFeedback: false, // LOCKED - cannot send feedback
         canViewFeedback: false,
         canReplyToFeedback: false,
         canDeleteFeedback: false,
+        canDeleteReport: false,
         canViewUserList: false,
         canPromoteToTeacher: false,
         canVerifyStudent: false,
         canUnverifyStudent: false,
+        canDeleteUser: false,
         canAccessDashboard: false,
       };
     default:
@@ -115,14 +132,17 @@ export function getPermissions(role: UserRole): RolePermissions {
         canSendNotification: false,
         canViewNotifications: false,
         canMarkAsRead: false,
+        canDeleteNotification: false,
         canSendFeedback: false,
         canViewFeedback: false,
         canReplyToFeedback: false,
         canDeleteFeedback: false,
+        canDeleteReport: false,
         canViewUserList: false,
         canPromoteToTeacher: false,
         canVerifyStudent: false,
         canUnverifyStudent: false,
+        canDeleteUser: false,
         canAccessDashboard: false,
       };
   }
@@ -139,12 +159,12 @@ export function canPromoteUser(currentRole: UserRole, targetRole: UserRole): boo
   if (targetRole === 'Teacher') {
     return currentRole === 'Administrator';
   }
-  
+
   // Only Teachers can verify students (promote Student to Verified_Student)
   if (targetRole === 'Verified_Student') {
     return currentRole === 'Teacher' || currentRole === 'Administrator';
   }
-  
+
   // No one can promote to Administrator or demote to Student
   return false;
 }

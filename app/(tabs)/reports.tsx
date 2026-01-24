@@ -8,7 +8,7 @@ import CreateReportForm from '../../src/components/CreateReportForm';
 
 export default function ReportsScreen() {
   const { user, signOut } = useAuth();
-  const { reports, loading } = useReports();
+  const { reports, loading, createReport } = useReports();
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const canCreateReport = user?.role === 'Student' || user?.role === 'Verified_Student';
@@ -56,7 +56,10 @@ export default function ReportsScreen() {
           onDismiss={() => setShowCreateForm(false)}
           contentContainerStyle={styles.modal}
         >
-          <CreateReportForm onSuccess={() => setShowCreateForm(false)} />
+          <CreateReportForm 
+            onSuccess={() => setShowCreateForm(false)} 
+            createReport={createReport}
+          />
         </Modal>
       </Portal>
     </View>

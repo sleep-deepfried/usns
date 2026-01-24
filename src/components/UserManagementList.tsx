@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
-import { Card, Text, Button, ActivityIndicator, Chip, Portal, Dialog } from 'react-native-paper';
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { Card, Text, Button, ActivityIndicator, Chip, Portal, Dialog, IconButton } from 'react-native-paper';
+import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { User } from '../types/auth';
 import { useAuth } from '../contexts/AuthContext';
 import { getPermissions } from '../utils/permissions';
 import { createNotificationRecord } from '../services/pushNotifications';
 
-type ActionType = 'verify' | 'unverify' | 'promote' | null;
+type ActionType = 'verify' | 'unverify' | 'promote' | 'delete' | null;
 
 export default function UserManagementList() {
   const [users, setUsers] = useState<User[]>([]);
@@ -101,6 +101,10 @@ export default function UserManagementList() {
           );
           alert('User promoted to Teacher successfully!');
           break;
+        case 'delete':
+          await deleteDoc(doc(db, 'users', selectedUser.uid));
+          alert('User deleted successfully!');
+          break;
       }
       await fetchUsers();
     } catch (error: any) {
@@ -116,6 +120,7 @@ export default function UserManagementList() {
       case 'verify': return 'Verify Student';
       case 'unverify': return 'Unverify Student';
       case 'promote': return 'Promote to Teacher';
+      case 'delete': return 'Delete User';
       default: return '';
     }
   };
@@ -130,6 +135,8 @@ export default function UserManagementList() {
         return `Are you sure you want to unverify ${name}? They will no longer be able to send feedback.`;
       case 'promote': 
         return `Are you sure you want to promote ${name} to Teacher? They will be able to send notifications and verify students.`;
+      case 'delete':
+        return `Are you sure you want to delete ${name}? This action cannot be undone.`;
       default: return '';
     }
   };
@@ -163,7 +170,16 @@ export default function UserManagementList() {
                     {item.email}
                   </Text>
                 </View>
-                <Chip mode="flat">{item.role}</Chip>
+                <View style={styles.headerRight}>
+                  <Chip mode="flat">{item.role}</Chip>
+                  {permissions.canDeleteUser && item.uid !== currentUser.uid && item.role !== 'Administrator' && (
+                    <IconButton
+                      icon="delete"
+                      size={20}
+                      onPress={() => openConfirmModal(item, 'delete')}
+                    />
+                  )}
+                </View>
               </View>
             </Card.Content>
 
@@ -223,7 +239,7 @@ export default function UserManagementList() {
             <Button 
               mode="contained" 
               onPress={handleConfirmAction}
-              buttonColor={actionType === 'unverify' ? '#c62828' : undefined}
+              buttonColor={actionType === 'unverify' || actionType === 'delete' ? '#c62828' : undefined}
             >
               Confirm
             </Button>
@@ -250,6 +266,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   userInfo: {
     flex: 1,

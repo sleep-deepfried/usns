@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button, Chip, Portal, Modal } from 'react-native-paper';
+import { View, StyleSheet, Alert } from 'react-native';
+import { Card, Text, Button, Chip, Portal, Modal, Dialog, IconButton } from 'react-native-paper';
 import { Notification } from '../types/notification';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -13,9 +13,10 @@ interface NotificationItemProps {
 
 export default function NotificationItem({ notification }: NotificationItemProps) {
   const { user } = useAuth();
-  const { markAsRead } = useNotifications();
+  const { markAsRead, deleteNotification } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
 
   if (!user) return null;
 
@@ -41,6 +42,16 @@ export default function NotificationItem({ notification }: NotificationItemProps
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      await deleteNotification(notification.id);
+      setDeleteDialogVisible(false);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete announcement');
+    }
+  };
+
   return (
     <>
       <Card style={[styles.card, !isRead && styles.unreadCard]}>
@@ -49,7 +60,16 @@ export default function NotificationItem({ notification }: NotificationItemProps
             <Text variant="titleMedium" style={styles.title}>
               {notification.title}
             </Text>
-            {!isRead && <Chip mode="flat" compact={true}>New</Chip>}
+            <View style={styles.headerRight}>
+              {!isRead && <Chip mode="flat" compact={true}>New</Chip>}
+              {permissions.canDeleteNotification && (
+                <IconButton
+                  icon="delete"
+                  size={20}
+                  onPress={() => setDeleteDialogVisible(true)}
+                />
+              )}
+            </View>
           </View>
 
           <Text variant="bodyMedium" style={styles.message}>
@@ -100,6 +120,16 @@ export default function NotificationItem({ notification }: NotificationItemProps
             onClose={() => setShowFeedbackForm(false)}
           />
         </Modal>
+        <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
+          <Dialog.Title>Delete Announcement</Dialog.Title>
+          <Dialog.Content>
+            <Text>Are you sure you want to delete this announcement?</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
+            <Button onPress={handleDelete} textColor="#c62828">Delete</Button>
+          </Dialog.Actions>
+        </Dialog>
       </Portal>
     </>
   );
@@ -119,6 +149,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   title: {
     fontWeight: 'bold',

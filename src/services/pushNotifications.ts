@@ -1,11 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
 import Constants from 'expo-constants';
 import { db } from '../config/firebase';
 
-// Check if we're running in Expo Go (executionEnvironment is the non-deprecated way)
+// Check if we're running in Expo Go
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 // Configure how notifications appear when app is in foreground
@@ -22,7 +22,6 @@ if (!isExpoGo) {
 }
 
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  // Skip in Expo Go - push notifications require a development build in SDK 53+
   if (isExpoGo) {
     console.log('Push notifications not available in Expo Go. Build an APK for full functionality.');
     return null;
@@ -35,11 +34,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     return null;
   }
 
-  // Check existing permissions
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
-  // Request permissions if not granted
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
@@ -50,7 +47,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     return null;
   }
 
-  // Get Expo push token
   try {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     const tokenData = await Notifications.getExpoPushTokenAsync({
@@ -62,7 +58,6 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     console.error('Error getting push token:', error);
   }
 
-  // Android-specific channel setup
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -86,7 +81,7 @@ export async function savePushToken(userId: string, token: string) {
   }
 }
 
-// Send local notification (for testing or immediate feedback)
+// Send local notification
 export async function sendLocalNotification(title: string, body: string) {
   await Notifications.scheduleNotificationAsync({
     content: {
@@ -94,12 +89,117 @@ export async function sendLocalNotification(title: string, body: string) {
       body,
       sound: true,
     },
-    trigger: null, // Send immediately
+    trigger: null,
   });
 }
 
-// For sending push notifications to specific users, you need a backend.
-// This function creates a notification record that a Cloud Function can pick up.
+// Send push notification to a specific user via Expo's push service
+export async function sendPushNotificationToUser(
+  targetUserId: string,
+  title: string,
+  body: string
+) {
+  try {
+    // Get user's push token from Firestore
+    const userDoc = await getDoc(doc(db, 'users', targetUserId));
+    if (!userDoc.exists()) {
+      console.log('User not found:', targetUserId);
+      return;
+    }
+
+    const userData = userDoc.data();
+    const pushToken = userData.fcmToken;
+
+    if (!pushToken) {
+      console.log('User has no push token:', targetUserId);
+      return;
+    }
+
+    // Send via Expo's push service
+    await sendExpoPushNotification(pushToken, title, body);
+    console.log('Push notification sent to:', targetUserId);
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+  }
+}
+
+// Send push notification to all users
+export async function sendPushNotificationToAll(title: string, body: string) {
+  try {
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const tokens: string[] = [];
+
+    usersSnapshot.forEach((doc) => {
+      const userData = doc.data();
+      if (userData.fcmToken) {
+        tokens.push(userData.fcmToken);
+      }
+    });
+
+    if (tokens.length === 0) {
+      console.log('No users with push tokens found');
+      return;
+    }
+
+    // Send to all tokens
+    await sendExpoPushNotifications(tokens, title, body);
+    console.log(`Push notification sent to ${tokens.length} users`);
+  } catch (error) {
+    console.error('Error sending push notifications:', error);
+  }
+}
+
+// Send notification via Expo's push API
+async function sendExpoPushNotification(pushToken: string, title: string, body: string) {
+  const message = {
+    to: pushToken,
+    sound: 'default',
+    title,
+    body,
+    data: { type: 'notification' },
+  };
+
+  await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Accept-encoding': 'gzip, deflate',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+  });
+}
+
+// Send notifications to multiple tokens
+async function sendExpoPushNotifications(pushTokens: string[], title: string, body: string) {
+  const messages = pushTokens.map((token) => ({
+    to: token,
+    sound: 'default',
+    title,
+    body,
+    data: { type: 'notification' },
+  }));
+
+  // Expo recommends sending in batches of 100
+  const chunks = [];
+  for (let i = 0; i < messages.length; i += 100) {
+    chunks.push(messages.slice(i, i + 100));
+  }
+
+  for (const chunk of chunks) {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(chunk),
+    });
+  }
+}
+
+// Create notification record and send push notification
 export async function createNotificationRecord(
   targetUserId: string,
   title: string,
@@ -107,15 +207,20 @@ export async function createNotificationRecord(
   type: 'verification' | 'unverification' | 'promotion' | 'announcement'
 ) {
   try {
+    // Save record to Firestore
     await addDoc(collection(db, 'push_notifications'), {
       targetUserId,
       title,
       body,
       type,
-      sent: false,
+      sent: true,
       createdAt: serverTimestamp(),
     });
-    console.log('Notification record created for:', targetUserId);
+
+    // Send the actual push notification
+    await sendPushNotificationToUser(targetUserId, title, body);
+
+    console.log('Notification record created and sent for:', targetUserId);
   } catch (error) {
     console.error('Error creating notification record:', error);
   }

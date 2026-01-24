@@ -15,4 +15,5 @@ export interface NotificationContextValue {
   loading: boolean;
   sendNotification: (title: string, message: string) => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<void>;
 }

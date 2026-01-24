@@ -6,13 +6,15 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
   arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Report, ReportReply } from '../types/report';
+import { Report } from '../types/report';
 import { useAuth } from './AuthContext';
+import { getPermissions } from '../utils/permissions';
 
 interface ReportContextValue {
   reports: Report[];
@@ -20,6 +22,7 @@ interface ReportContextValue {
   createReport: (title: string, message: string) => Promise<void>;
   replyToReport: (reportId: string, message: string) => Promise<void>;
   updateReportStatus: (reportId: string, status: Report['status']) => Promise<void>;
+  deleteReport: (reportId: string) => Promise<void>;
 }
 
 const ReportContext = createContext<ReportContextValue | undefined>(undefined);
@@ -98,8 +101,19 @@ export function ReportProvider({ children }: { children: React.ReactNode }) {
     await updateDoc(doc(db, 'reports', reportId), { status });
   };
 
+  const deleteReport = async (reportId: string) => {
+    if (!user) throw new Error('Must be logged in');
+
+    const permissions = getPermissions(user.role);
+    if (!permissions.canDeleteReport) {
+      throw new Error('You do not have permission to delete reports');
+    }
+
+    await deleteDoc(doc(db, 'reports', reportId));
+  };
+
   return (
-    <ReportContext.Provider value={{ reports, loading, createReport, replyToReport, updateReportStatus }}>
+    <ReportContext.Provider value={{ reports, loading, createReport, replyToReport, updateReportStatus, deleteReport }}>
       {children}
     </ReportContext.Provider>
   );
